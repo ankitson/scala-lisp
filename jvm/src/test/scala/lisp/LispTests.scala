@@ -1,8 +1,7 @@
 package lisp
 
-import lisp.ast.LispExprAST._
-import lisp.ast.SExprAST._
-import lisp.compile.LispCompiler
+import lisp.ast.Trees._
+import lisp.compile.TreeTransformers
 import utest._
 
 object LispTests extends TestSuite {
@@ -12,37 +11,50 @@ object LispTests extends TestSuite {
     import fastparse.core.Result
     import lisp.parse.Parsers
 
-    val parser = Parsers.exprP
-    val compiler = LispCompiler
+    val parse = (src: String) => Parsers.exprP.parse(src)
+    val compile = (sexpr: SExpr) => TreeTransformers.compile(sexpr)
+    val eval = (expr:Expr) => TreeTransformers.total_eval(expr, Symbols())
 
-    def testEval(source: String, exp_pexpr: SExpr, exp_expr: Expr) = {
+    def testCompile(source: String, sexpr: SExpr, expr: Expr) = {
       println("-----------------------")
       println(f"evaluating \n $source")
-      val Result.Success(pexpr, _) = parser.parse(source)
-      println(f"parsed ast \n $pexpr")
-      assert (pexpr == exp_pexpr)
-      val expr = compiler.compile(pexpr)
+      val Result.Success(res_sexpr, _) = parse(source)
+      println(f"parsed ast \n $res_sexpr")
+      assert (res_sexpr == sexpr)
+      val res_expr = compile(sexpr)
       println(f"compiled ast \n $expr")
-      assert (expr == exp_expr)
+      assert (res_expr == expr)
+      expr
+    }
+
+    def testEval[T](expr: Expr, value: T) = {
+      val (evaled,newenv) = eval(expr)
+      println(f"evaluted result \n $evaled")
+      assert (evaled.asInstanceOf[T] == value)
+    }
+
+    def testProgram[T](source: String, sexpr: SExpr, expr: Expr, theval: Option[T] = None) = {
+      testCompile(source, sexpr, expr)
+      for { v <- theval } testEval(expr, v)
     }
 
     'literals {
-      testEval("1", SNumber(1), Number(1))
-      testEval("100", SNumber(100), Number(100))
-      testEval("-096", SNumber(-96), Number(-96))
-      testEval("#t", SBool(true), Bool(true))
-      testEval("#f", SBool(false), Bool(false))
+      testCompile("1", SNumber(1), Number(1))
+      testCompile("100", SNumber(100), Number(100))
+      testCompile("-096", SNumber(-96), Number(-96))
+      testCompile("#t", SBool(true), Bool(true))
+      testCompile("#f", SBool(false), Bool(false))
     }
 
     'symbols {
-      testEval("x", SSymbol("x"), Symbol("x"))
-      testEval("xyz", SSymbol("xyz"), Symbol("xyz"))
+      testCompile("x", SSymbol("x"), Symbol("x"))
+      testCompile("xyz", SSymbol("xyz"), Symbol("xyz"))
     }
 
     'quotes {
-      testEval("(quote x)", SList(SSymbol("quote") :: SSymbol("x") :: Nil), Quote(Symbol("x")))
-      testEval("(quote 5)", SList(SSymbol("quote") :: SNumber(5) :: Nil), Quote(Number(5)))
-      testEval("(quote (quote x))",
+      testCompile("(quote x)", SList(SSymbol("quote") :: SSymbol("x") :: Nil), Quote(Symbol("x")))
+      testCompile("(quote 5)", SList(SSymbol("quote") :: SNumber(5) :: Nil), Quote(Number(5)))
+      testCompile("(quote (quote x))",
         SList(
           SSymbol("quote") ::
           SList(
@@ -56,7 +68,7 @@ object LispTests extends TestSuite {
     }
 
     'binds {
-      testEval(
+      testCompile(
         "(define x 5)",
         SList(SSymbol("define") :: SSymbol("x") :: SNumber(5) :: Nil),
         Bind(Symbol("x"), Number(5))
@@ -64,31 +76,34 @@ object LispTests extends TestSuite {
     }
 
     'fnapps {
-      testEval(
-        "(+ 1 2 3 4)",
-        SList(SSymbol("+") :: SNumber(1) :: SNumber(2) :: SNumber(3) :: SNumber(4) :: Nil),
-        FnApp(Symbol("+"), Number(1) :: Number(2) :: Number(3) :: Number(4) :: Nil)
-      )
+      val listAdd = "(+ 1 2 3 4)"
+      val sexpr = SList(SSymbol("+") :: SNumber(1) :: SNumber(2) :: SNumber(3) :: SNumber(4) :: Nil)
+      val expr = FnApp(Symbol("+"), Number(1) :: Number(2) :: Number(3) :: Number(4) :: Nil)
+      val evaled = Number(10)
+      testCompile(listAdd, sexpr, expr)
+      testEval(expr, evaled)
     }
 
     'add {
-      val add = "(plus 1 2)"
-      val pexpr = SList(List(
-        SSymbol("plus"),
+      val add = "(+ 1 2)"
+      val sexpr = SList(List(
+        SSymbol("+"),
         SNumber(1),
         SNumber(2)
       ))
       val expr = FnApp(
-        Symbol("plus"),
+        Symbol("+"),
         List(Number(1),Number(2))
       )
+      val evaled = Number(3)
 
-      testEval(add, pexpr, expr)
+      testCompile(add, sexpr, expr)
+      testEval(expr, evaled)
     }
 
     'if {
       val ifsrc = "(if (greater 2 3) (cons 1 nil) 2)"
-      val pexpr = SList(List(
+      val sexpr = SList(List(
         SSymbol("if"),
         SList(List(
           SSymbol("greater"),
@@ -110,8 +125,11 @@ object LispTests extends TestSuite {
           Number(2)
         )
       )
+      val evaled = Number(2)
 
-      testEval(ifsrc, pexpr, expr)
+      testCompile(ifsrc, sexpr, expr)
+      testEval(expr, evaled)
+
     }
   }
 

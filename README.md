@@ -1,10 +1,13 @@
 ### Lisp interpreter
 
-Lisp interpreter in scala.
+Lisp parser, interpreter and REPL.
 
-Working parser, compiler and evaluator
+language features:
 
-```define``` and function application is strict - exprs are evaluated before being bound
+ * number, boolean and lambda literals
+ * bind symbols to global scope with define
+ * supplied native methods +,-,*,/
 
-Stuff to try:
- * Lazy eval
+Run repl.ConsoleRepl to launch a repl.
+
+Written as sequence of AST transformers.

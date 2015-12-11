@@ -4,11 +4,9 @@ package lisp.compile
 import lisp.Symbols
 import lisp.ast.Trees._
 
-import scala.collection.immutable.ListMap
-
 object TreeTransformers {
 
-  //1. s-expr to expr
+  //compile s-expr to expr
   def compile(parsed: SExpr): Expr = parsed match {
     case SSymbol(name) => Symbol(name)
     case SNumber(num) => Number(num)
@@ -16,20 +14,39 @@ object TreeTransformers {
     case SList(exprs) => exprs match {
       case SSymbol("quote") :: expr :: Nil => Quote(compile(expr))
       case SSymbol("define") :: SSymbol(name) :: expr :: Nil => Bind(Symbol(name), compile(expr))
-      case SSymbol("lambda") :: SList(formals) :: SList(body) :: Nil => Lambda(body.map(compile), Symbols())
-      case SSymbol(fn) :: argexprs => FnApp(Symbol(fn), argexprs.map(compile))
+      case SSymbol("lambda") :: SList(formals) :: SList(body) :: Nil => {
+        formals match {
+          case (params: List[SSymbol]) =>
+            Lambda(body.map(compile), params.map(_.symbol))
+          case other => throw new Exception(f"compile error - expected params list but saw $other")
+        }
+      }
+      case head :: tail => //function call
+        compile(head) match {
+          case symbol: Symbol => FnCall(Left(symbol), tail.map(compile))
+          case lambda: Lambda => FnCall(Right(lambda), tail.map(compile))
+          case _ => throw new Exception(f"invalid function call ${head :: tail}")
+        }
       case other => throw new Exception(f"compile error - failed to compile subexpr $other")
     }
     case other => throw new Exception(f"compile error - failed to compile expr $other")
   }
 
-  val nativeMethods: Map[Symbol, List[Expr] => Expr] = Map(
-    Symbol("+") ->
-      ( (exprs: List[Expr]) => { Number(exprs.map(_.asInstanceOf[Number]).map(_.num).sum) } )
-  )
+  //eval expr
+  def eval(expr: Expr, env: Symbols): (Expr, Symbols) = {
+    val stages = List(
+      bindSymbols _,
+      substituteSymbols _,
+      applyFunctions _,
+      unquote _
+    ).map(_.tupled)
+
+    val total = stages.reduceLeft(_ andThen _)
+    total((expr,env))
+  }
 
   def bindSymbols(expr: Expr, env: Symbols): (Expr, Symbols) = expr match {
-    case Bind(name, exp) => (UnitExpr, env.updated(name, total_eval(exp, env)._1))
+    case Bind(name, exp) => (UnitExpr, env.updated(name, eval(exp, env)._1))
     case other => (other, env)
   }
 
@@ -39,65 +56,50 @@ object TreeTransformers {
   }
 
   def applyFunctions(expr: Expr, env: Symbols): (Expr, Symbols) = expr match {
-    case FnApp(symbol, args) => {
-      if (env.contains(symbol)) {
-        val func = env(symbol).asInstanceOf[Lambda]
-        if (func.param_env.keys.size != args.size) {
-          throw new Exception(f"expected args ${func.param_env.keys} but got ${args}")
+    case FnCall(name, args) => name match {
+      case Left(fn_name_sym) =>
+        if (!env.contains(fn_name_sym)) {
+          throw new Exception(f"undefined function $fn_name_sym")
         }
-        val local_env = new ListMap[Symbol,Expr]() ++ func.param_env.keys.zip(args)
-        val scoped_lambda = func.copy(param_env = local_env)
-        (scoped_lambda, env)
-      }
-      else if (nativeMethods.contains(symbol)) {
-        val nativeMethod = nativeMethods(symbol)
-        val evaled_args = args.map(total_eval(_, env)._1)
-        (nativeMethod(evaled_args), env)
-      }
-      else {
-        throw new Exception(f"undefined function $symbol")
-      }
+
+        val fn = env(fn_name_sym)
+
+        fn match {
+          case lambda @ Lambda(body, formals) =>
+            applyFunctions(FnCall(Right(lambda), args), env)
+
+          case NativeMethod(method) =>
+            val evaled_args = args.map(eval(_, env)._1)
+            (method(evaled_args),env)
+          case _ => throw new Exception(f"symbol $fn_name_sym does not refer to a function")
+        }
+      case Right(Lambda(body,formals)) =>
+        if (formals.length != args.length)
+          throw new Exception(f"expected args $formals but got $args")
+
+        val formal_syms = formals.map(Symbol)
+        val evaled_args = args.map(eval(_, env)._1)
+        val lambda_env: Symbols = env ++ Symbols(formal_syms.zip(evaled_args): _*)
+
+        var last_val: Expr = UnitExpr
+        var last_env = lambda_env
+
+        for (expr <- body) {
+          val (v,e) = eval(expr, last_env)
+          last_val = v
+          last_env = e
+        }
+        (last_val, env)
     }
     case other => (other, env)
   }
+
 
   def unquote(expr: Expr, env: Symbols): (Expr, Symbols) = expr match {
     case Quote(exp) => (exp, env)
     case other => (other, env)
   }
 
-  def applyLambdas(expr: Expr, env: Symbols): (Expr, Symbols) = expr match {
-    case Lambda(body, local_env) =>
-      var last_val: Expr = UnitExpr
-      var total_env = local_env ++ env //todo merge envs properly
-      println(f"evaluating lambda with env: $total_env")
-      for (expr <- body) {
-        val (last_val1,new_env) = total_eval(expr, total_env)
-        last_val = last_val1
-        total_env = new_env
-      }
-      (last_val,total_env)
-    case other => (other,env)
-  }
 
-
-
-
-  def total_eval(expr: Expr, env: Symbols): (Expr, Symbols) = {
-    def printArgs[A,B](f: Function[(A,B), (A,B)], tag: String = "") =
-      (args: (A,B)) => { println(f"[$tag] args: $args"); f(args) }
-
-    val stages = List(
-      bindSymbols _,
-      substituteSymbols _,
-      applyFunctions _,
-      unquote _,
-      applyLambdas _
-    ).map(_.tupled).zipWithIndex.map{ case (fn, idx) => printArgs(fn, idx.toString)}
-
-
-    val total = stages.reduceLeft(_ andThen _)
-    total((expr,env))
-  }
 
 }

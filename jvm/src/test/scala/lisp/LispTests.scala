@@ -88,7 +88,7 @@ object LispTests extends TestSuite {
     'lambdas {
       val ident = "(lambda (x) (x))"
       val sexpr = SList(SSymbol("lambda") :: SList(SSymbol("x") :: Nil) :: SList(SSymbol("x") :: Nil) :: Nil)
-      val expr = Lambda(List(Symbol("x")), List("x"))
+      val expr = Lambda(Symbol("x"), List("x"))
       testCompile(ident, sexpr, expr)
     }
 

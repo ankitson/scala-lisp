@@ -20,8 +20,9 @@ lazy val lisp = (crossProject in file(".")).
       "com.github.pathikrit" %% "better-files" % "2.12.2",
 
       "com.lihaoyi" %%% "fastparse" % "0.3.4",
-      "com.lihaoyi" % "ammonite-repl_2.11.7" % "0.5.2",
       "com.lihaoyi" %%% "pprint" % "0.3.6",
+
+      "com.lihaoyi" % "ammonite-repl_2.11.7" % "0.5.2",
       "com.lihaoyi" %%% "utest" % "0.3.1" % "test"
     ),
     initialCommands in (Test, console) := """ammonite.repl.Main.run("")""",

@@ -19,11 +19,13 @@ lazy val lisp = (crossProject in file(".")).
     libraryDependencies ++= Seq(
       "com.github.pathikrit" %% "better-files" % "2.12.2",
 
-      "com.lihaoyi" %%% "scalaparse" % "0.3.1",
-
+      "com.lihaoyi" %%% "fastparse" % "0.3.4",
+      "com.lihaoyi" % "ammonite-repl_2.11.7" % "0.5.2",
+      "com.lihaoyi" %%% "pprint" % "0.3.6",
       "com.lihaoyi" %%% "utest" % "0.3.1" % "test"
     ),
-    initialCommands in console := autoImports,
+    initialCommands in (Test, console) := """ammonite.repl.Main.run("")""",
+    //initialCommands in console := autoImports,
     skip in packageJSDependencies := false,
     persistLauncher := true,
 

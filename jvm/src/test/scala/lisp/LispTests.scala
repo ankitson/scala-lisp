@@ -9,7 +9,7 @@ object LispTests extends TestSuite {
 
 
   val tests = TestSuite {
-    import fastparse.core.Result
+    import fastparse.core.Parsed
     import lisp.parse.Parsers
 
     val parse = (src: String) => Parsers.exprP.parse(src)
@@ -19,7 +19,7 @@ object LispTests extends TestSuite {
     def testCompile(source: String, sexpr: SExpr, expr: Expr) = {
       println("-----------------------")
       println(f"evaluating \n $source")
-      val Result.Success(res_sexpr, _) = parse(source)
+      val Parsed.Success(res_sexpr, _) = parse(source).get
       println(f"parsed ast \n $res_sexpr")
       assert (res_sexpr == sexpr)
       val res_expr = compile(sexpr)

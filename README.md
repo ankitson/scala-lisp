@@ -11,3 +11,6 @@ language features:
 Run repl.ConsoleRepl to launch a repl.
 
 Written as sequence of AST transformers.
+
+# todo next
+- see failing test - add lexical scoping

@@ -79,17 +79,66 @@ object LispTests extends TestSuite {
     'fnapps {
       val listAdd = "(+ 1 2 3 4)"
       val sexpr = SList(SSymbol("+") :: SNumber(1) :: SNumber(2) :: SNumber(3) :: SNumber(4) :: Nil)
-      val expr = FnCall(Left(Symbol("+")), Number(1) :: Number(2) :: Number(3) :: Number(4) :: Nil)
+      val expr = FnCall(Symbol("+"), Number(1) :: Number(2) :: Number(3) :: Number(4) :: Nil)
       val evaled = Number(10)
       testCompile(listAdd, sexpr, expr)
       testEval(expr, evaled)
     }
 
     'lambdas {
-      val ident = "(lambda (x) (x))"
-      val sexpr = SList(SSymbol("lambda") :: SList(SSymbol("x") :: Nil) :: SList(SSymbol("x") :: Nil) :: Nil)
-      val expr = Lambda(Symbol("x"), List("x"))
+      val ident = "(lambda (x) x)"
+      val sexpr = SList(SSymbol("lambda") :: SList(SSymbol("x") :: Nil) :: SSymbol("x") :: Nil)
+      val expr = Lambda(List("x"),Symbol("x"))
       testCompile(ident, sexpr, expr)
+
+      'nested {
+        val nest = """(define nest
+                     |  (lambda (x)
+                     |    (lambda (y) (+ x y) )
+                     |  )
+                     |)""".stripMargin.trim
+        val sexpr =
+          SList(List(
+              SSymbol("define"),
+              SSymbol("nest"),
+              SList(List(
+                  SSymbol("lambda"),
+                  SList(List( SSymbol("x") )),
+                  SList(List(
+                      SSymbol("lambda"),
+                      SList(List( SSymbol("y") )),
+                      SList(List( SSymbol("+"), SSymbol("x"), SSymbol("y") ))
+                    )
+                  )
+                )
+              )
+            )
+          )
+
+        val expr =
+          Bind(
+            Symbol("nest"),
+            Lambda(
+              List("x"),
+              Lambda(
+                List("y"),
+                FnCall(Symbol("+"), List(Symbol("x"), Symbol("y")) )
+              )
+            )
+          )
+        testCompile(nest,sexpr,expr)
+
+        //todo: add lexical scope
+        val nest2 = """(
+                      |  ((lambda (x)
+                      |    (lambda (y) (+ x y) )
+                      |  )
+                      |  1)
+                      |  2
+                      |)"""
+        val expr2 = compile(parse(nest2).get.value)
+        testEval(expr2, 3)
+      }
     }
 
     'add {
@@ -100,7 +149,7 @@ object LispTests extends TestSuite {
         SNumber(2)
       ))
       val expr = FnCall(
-        Left(Symbol("+")),
+        Symbol("+"),
         List(Number(1),Number(2))
       )
       val evaled = Number(3)
@@ -108,6 +157,8 @@ object LispTests extends TestSuite {
       testCompile(add, sexpr, expr)
       testEval(expr, evaled)
     }
+
+
 
 //    'if {
 //      val ifsrc = "(if (greater 2 3) (cons 1 nil) 2)"

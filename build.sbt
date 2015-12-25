@@ -15,7 +15,6 @@ lazy val lisp = (crossProject in file(".")).
     name := "lisp",
     version := "0.1.0",
     scalaVersion := "2.11.7",
-
     libraryDependencies ++= Seq(
       "com.github.pathikrit" %% "better-files" % "2.12.2",
 

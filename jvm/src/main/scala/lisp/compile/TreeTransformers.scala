@@ -23,17 +23,12 @@ object TreeTransformers {
       case SSymbol("lambda") :: SList(_params) :: body :: Nil => {
         _params match {
           case (params: List[SSymbol]) =>
-            Lambda(compile(body), params.map(_.symbol))
+            Lambda(params.map(_.symbol), compile(body))
           case other => throw new Exception(f"compile error - expected params list but saw $other")
         }
       }
       case head :: tail => //function call
-        val compiledHead = compile(head)
-        compiledHead match {
-          case symbol: Symbol => FnCall(Left(symbol), tail.map(compile))
-          case lambda: Lambda => FnCall(Right(lambda), tail.map(compile))
-          case _ => throw new Exception(f"invalid function call ${compiledHead :: tail}")
-        }
+        FnCall(compile(head), tail.map(compile))
       case other => throw new Exception(f"compile error - failed to compile subexpr $other")
     }
     case other => throw new Exception(f"compile error - failed to compile expr $other")
@@ -41,24 +36,26 @@ object TreeTransformers {
 
 
   type TreeMap = (Expr, Symbols) => (Expr, Symbols)
+
   case class TreeTransform(name: String, f: TreeMap) {
     def compose(next: TreeTransform) = TreeTransform(name + "/" + next.name, (e,s) => (f.tupled andThen next.f.tupled)((e,s)) )
     def andThen = compose _
     def apply(expr: Expr, env: Symbols) = f(expr,env)
   }
+
   object TreeTransform {
     def named(name: String)(f: TreeMap) = TreeTransform(name,f)
   }
+
+
 
   //eval expr
   def eval(expr: Expr, env: Symbols): (Expr, Symbols) = {
     val transform =
       bindSymbols andThen
       substituteSymbols andThen
-      resolveFnCallSymbols andThen
-      resolveFnCallLambdas andThen
+      fnCalls andThen
       unquote
-
     transform(expr,env)
   }
 
@@ -72,35 +69,27 @@ object TreeTransformers {
     case other => (other,env)
   }}
 
+  def fnCalls = TreeTransform.named("fncalls"){(expr, env) => expr match {
+    case FnCall(head, args) =>
+      val evaledHead = eval(head,env)._1
+      //evaled head can be a
+      //lambda, native. not a symbol, since that would be substituted in substituteSymbols
+      evaledHead match {
+        case Lambda(params,body) =>
+          if (params.length != args.length)
+            throw new Exception(s"expected ${params.length} args but got $args in tree $expr")
 
-  //after this stage fncalls are right only
-  //also applies natives. todo: split
-  def resolveFnCallSymbols = TreeTransform.named("resolveFnCallSymbols"){(expr,env) => expr match {
-    case FnCall(name, args) if name.isLeft =>
-      val Left(sym) = name
-      if (!env.contains(sym))
-        throw new Exception(s"unable to find function $sym")
-      env(sym) match { //todo: enforce via typelevel that env only has NativeMethod or Lambda
+          //todo: can evaled args have side effects? this will not update env
+          val evaledArgs = args.map(eval(_,env)._1)
+          val localEnv: Symbols = ListMap(params.map(Symbol).zip(evaledArgs): _*) ++ env
+          (eval(body,localEnv)._1,env)
         case NativeMethod(method) =>
-          val evaled_args = args.map(eval(_,env)._1)
-          (method(evaled_args),env)
-        case lambda: Lambda => (lambda,env)
-        case other => throw new Exception(s"expected native/lambda in env($sym), got $other")
+          val evaledArgs = args.map(eval(_,env)._1)
+          (method(evaledArgs), env)
+        case other => (other,env)
       }
-    case other => (other,env)
-  }}
+    case other => (other, env)
 
-  def resolveFnCallLambdas = TreeTransform.named("resolveFnCallLambdas"){(expr, env) => expr match {
-    case FnCall(name,args) if name.isRight =>
-      val Right(Lambda(body,params)) = name
-      if (params.length != args.length)
-        throw new Exception(s"expected ${params.length} args but got ${args}")
-
-      //todo: can evaled args have side effects? this will not update env
-      val evaledArgs = args.map(eval(_,env)._1)
-      val localEnv: Symbols = ListMap(params.map(Symbol).zip(evaledArgs): _*) ++ env
-      (eval(body,localEnv)._1,env)
-    case other => (other,env)
   }}
 
   def unquote = TreeTransform.named("unquote"){(expr,env) => expr match {

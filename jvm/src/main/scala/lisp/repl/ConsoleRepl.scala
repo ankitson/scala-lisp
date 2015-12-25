@@ -28,7 +28,7 @@ object ConsoleRepl {
       print("parse ok\t\t"); pprint.pprintln(parsed)
       val compiled = TreeTransformers.compile(parsed)
       print("compile ok\t\t"); pprint.pprintln(compiled)
-      val (evaled,nextenv) = TreeTransformers.eval(compiled, env)
+      val (evaled,nextenv) = TreeTransformers.eval2(compiled, env)
       print("eval ok\t\t"); pprint.pprintln(evaled) //pprint.pprintln(s"eval OK\t\t ${show(evaled)}")
       env = nextenv
       print("new env\t\t"); pprint.pprintln(env)
@@ -37,7 +37,7 @@ object ConsoleRepl {
   }
 
 
-  def showEnv(env: Symbols): String = {
+  def showEnv(env: Env): String = {
     ( for ((symbol,expr) <- env) yield symbol.name + "=" + show(expr) ).mkString("[",",","]")
   }
 

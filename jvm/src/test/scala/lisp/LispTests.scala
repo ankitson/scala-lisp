@@ -29,7 +29,9 @@ object LispTests extends TestSuite {
     }
 
     def testEval[T](expr: Expr, value: T) = {
-      val (evaled,newenv) = eval(expr)
+      val evld = eval(expr)
+      if (evld.isLeft) throw new Exception(s"eval error: ${evld.left.get}")
+      val (evaled,newenv) = eval(expr).right.get
       println(f"evaluted result \n $evaled")
       assert (evaled.asInstanceOf[T] == value)
     }
@@ -88,7 +90,7 @@ object LispTests extends TestSuite {
     'lambdas {
       val ident = "(lambda (x) x)"
       val sexpr = SList(SSymbol("lambda") :: SList(SSymbol("x") :: Nil) :: SSymbol("x") :: Nil)
-      val expr = Lambda(List("x"),Symbol("x"))
+      val expr = Lambda(List("x"),List(Symbol("x")))
       testCompile(ident, sexpr, expr)
 
       'nested {
@@ -120,10 +122,10 @@ object LispTests extends TestSuite {
             Symbol("nest"),
             Lambda(
               List("x"),
-              Lambda(
+              List(Lambda(
                 List("y"),
-                FnCall(Symbol("+"), List(Symbol("x"), Symbol("y")) )
-              )
+                List(FnCall(Symbol("+"), List(Symbol("x"), Symbol("y")) ))
+              ))
             )
           )
         testCompile(nest,sexpr,expr)
@@ -131,14 +133,70 @@ object LispTests extends TestSuite {
         //todo: add lexical scope
         val nest2 = """(
                       |  ((lambda (x)
-                      |    (lambda (y) (+ x y) )
-                      |  )
+                      |    (lambda (y) (+ x y)))
                       |  1)
                       |  2
-                      |)"""
-        val expr2 = compile(parse(nest2).get.value)
-        testEval(expr2, 3)
+                      |)""".stripMargin.trim
+        val sexpr2 =
+          SList(List(
+            SList(List(
+              SList(List(
+                SSymbol("lambda"),
+                SList(List( SSymbol("x") )),
+                SList(List(
+                  SSymbol("lambda"),
+                  SList(List( SSymbol("y") )),
+                  SList(List( SSymbol("+"), SSymbol("x"), SSymbol("y") ))
+                ))
+              )),
+              SNumber(1)
+            )),
+            SNumber(2))
+          )
+        val expr2 = FnCall(
+          FnCall(
+            Lambda(
+              List("x"),
+              List(Lambda(
+                List("y"),
+                List(FnCall(Symbol("+"), List(Symbol("x"),Symbol("y"))))
+              ))
+            ),
+            List(Number(1))
+          ),
+          List(Number(2))
+        )
+        testCompile(nest2, sexpr2, expr2)
+        testEval(expr2,3)
       }
+
+      'seqbody {
+        val test =
+          """
+            |(lambda (x)
+            |   (stmt1)
+            |   (+ 5 5)
+            |   x
+            |)
+          """.stripMargin.trim
+        val sexpr = SList(List(
+          SSymbol("lambda"),
+          SList(List(SSymbol("x"))),
+          SList(List(SSymbol("stmt1"))),
+          SList(List(SSymbol("+"), SNumber(5), SNumber(5))),
+          SSymbol("x")
+        ))
+        val expr = Lambda(
+          params = List("x"),
+          body = List(
+            FnCall(Symbol("stmt1"),Nil),
+            FnCall(Symbol("+"), List(Number(5),Number(5))),
+            Symbol("x")
+          )
+        )
+
+      }
+
     }
 
     'add {
@@ -157,39 +215,6 @@ object LispTests extends TestSuite {
       testCompile(add, sexpr, expr)
       testEval(expr, evaled)
     }
-
-
-
-//    'if {
-//      val ifsrc = "(if (greater 2 3) (cons 1 nil) 2)"
-//      val sexpr = SList(List(
-//        SSymbol("if"),
-//        SList(List(
-//          SSymbol("greater"),
-//          SNumber(2),
-//          SNumber(3)
-//        )),
-//        SList(List(
-//          SSymbol("cons"),
-//          SNumber(1),
-//          SSymbol("nil")
-//        )),
-//        SNumber(2)
-//      ))
-//      val expr = FnApp(
-//        Symbol("if"),
-//        List(
-//          FnApp(Symbol("greater"), Number(2) :: Number(3) :: Nil),
-//          FnApp(Symbol("cons"), Number(1) :: Symbol("nil") :: Nil),
-//          Number(2)
-//        )
-//      )
-//      val evaled = Number(2)
-//
-//      testCompile(ifsrc, sexpr, expr)
-//      testEval(expr, evaled)
-//
-//    }
   }
 
 }

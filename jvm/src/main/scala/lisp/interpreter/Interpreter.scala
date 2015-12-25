@@ -1,13 +1,13 @@
 package lisp.interpreter
 
-import lisp.Symbols
+import lisp.Env
 import lisp.ast.Trees._
 import lisp.compile.TreeTransformers
 import lisp.parse.Parsers
 
 object Interpreter {
 
-  def newEnv(): Symbols = {
+  def newEnv(): Env = {
     val nativeMethods = Map[Symbol, Expr](
       Symbol("+") -> NativeMethod({
         case nums: List[Number] => Number(nums.map(_.num).sum)
@@ -27,15 +27,15 @@ object Interpreter {
       })
     )
     val env = nativeMethods
-    Symbols(env.toList:_*)
+    Env(env.toList:_*)
   }
 
-  def apply(): (String => (Expr, Symbols)) = {
+  def apply(): (String => (Expr, Env)) = {
     var env = newEnv()
     (input: String) => {
       val parsed = Parsers.exprP.parse(input).get.value
       val compiled = TreeTransformers.compile(parsed)
-      val (evaled,newenv) = TreeTransformers.eval(compiled, env)
+      val (evaled,newenv) = TreeTransformers.eval2(compiled, env)
       env = newenv
 
       (evaled,env)

@@ -31,22 +31,10 @@ object Lisp extends App {
     case class Fail(msg: String) extends Exp
 
     sealed trait Procedure extends Exp
-    case class NativeFunction(function: List[Exp] => Exp) extends Procedure {
-      // def apply(a: List[Exp]) = function(e)
-    }
+    case class NativeFunction(function: List[Exp] => Exp) extends Procedure
 
-    case class Closure(body: Exp, freeVars: List[Sym]) extends Procedure {
-      // def apply(args: List[Exp]) = {
-      //   def validateArgs(args: List[Exp]): Option[String] = {
-      //     if (freeVars.size != args.size) Option(s"expected ${freeVars.size} args but got ${args.size}")
-      //   }
-      //   validateArgs(args).map(msg => Failed(msg)).getOrElse {
-      //
-      //
-      //   }
-      //
-      // }
-    }
+    case class Closure(body: Exp, freeVars: List[Sym]) extends Procedure
+
 
     case class Bind(varSym: Sym, value: Exp) extends Exp
     case class Quote(value: Exp) extends Exp
@@ -127,7 +115,14 @@ object Lisp extends App {
       Sym("+") -> NativeFunction(args => { println(s"adding $args"); Num(args.map(numToInt(_)).sum) }),
       Sym("-") -> NativeFunction(args => Num (numToInt(args(0)) - numToInt(args(1))) ),
       Sym("*") -> NativeFunction(args => Num ( args.map(numToInt(_)).foldLeft(1)(_ * _)) ),
-      Sym("/") -> NativeFunction(args => Num (numToInt(args(0)) / numToInt(args(1))) )
+      Sym("/") -> NativeFunction(args => Num (numToInt(args(0)) / numToInt(args(1))) ),
+      Sym("=") -> NativeFunction(args => Bool (args(0) == args(1)) ),
+      Sym("if") -> NativeFunction(args => {
+        val test = args(0).asInstanceOf[Bool]
+        val tbranch = args(1)
+        val fbranch = args(2)
+        if (test.value) tbranch else fbranch
+      })
     )
 
 

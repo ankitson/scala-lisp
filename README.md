@@ -1,4 +1,4 @@
-Scheme interpreter and repl
+Lisp interpreter and repl
 
 # todo next
-- see failing test - add lexical scoping
+- if with lazy evaluation 

@@ -1,4 +1,5 @@
 Lisp interpreter and repl
 
-# todo next
-- if with lazy evaluation 
+##### todo
+- nested closures broken
+- closure body - expr or list[expr]?

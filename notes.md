@@ -2,4 +2,5 @@
    vs. a "let ((symbol expr) ...) (body_expr)" which evaluates the body with the defined symbols in scope
 
  * fn args are strictly evaluated
-  * so evaluating if-else is a special case in the interpreter :( 
+  * so evaluating if-else is a special case in the interpreter :(
+  * we could implement lazy, or lazy+memo eval. but native methods have to be strict.

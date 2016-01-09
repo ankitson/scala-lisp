@@ -16,13 +16,7 @@ object lib {
     Sym("/") -> NativeFunction(args => Num (numToInt(args(0)) / numToInt(args(1))) ),
     Sym("=") -> NativeFunction(args => Bool (args(0) == args(1)) ),
     Sym("<") -> NativeFunction(args => Bool (numToInt(args(0)) < numToInt(args(1)) ) ),
-    Sym(">") -> NativeFunction(args => Bool (numToInt(args(0)) > numToInt(args(1)) ) ),
-    Sym("if") -> NativeFunction(args => {
-      val test = args(0).asInstanceOf[Bool]
-      val tbranch = args(1)
-      val fbranch = args(2)
-      if (test.value) tbranch else fbranch
-    })
+    Sym(">") -> NativeFunction(args => Bool (numToInt(args(0)) > numToInt(args(1)) ) )
   )
 
 }

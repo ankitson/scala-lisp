@@ -30,190 +30,92 @@ object LispTests extends TestSuite {
       assert (evaled.asInstanceOf[T] == value)
     }
 
-    def testProgram[T](source: String, SExp: SExp, expr: Exp, theval: Option[T] = None) = {
-      testCompile(source, SExp, expr)
-      for { v <- theval } testEval(expr, v)
+    def testRepl(statements: (String, Exp)*) = {
+      var env = natives()
+      for ((input, exp_val) <- statements) {
+        val parsed = _parse(input)
+        assertMatch(parsed){case Parsed.Success(_,_) => }
+        val sexp = parsed.get.value
+        val exp = compile(sexp)
+        val (evaled,nextEnv) = eval(exp, env)
+        assert (evaled == exp_val)
+        env = nextEnv
+      }
     }
 
+
     'literals {
-      testCompile("1", SNum(1), Num(1))
-      testCompile("100", SNum(100), Num(100))
-      testCompile("-096", SNum(-96), Num(-96))
-      testCompile("#t", SBool(true), Bool(true))
-      testCompile("#f", SBool(false), Bool(false))
+      testCompile("1", 1.snum, 1.lnum)
+      testCompile("100", 100.snum, 100.lnum)
+      testCompile("-096", -96.snum, -96.lnum)
+      testCompile("#t", true.sbool, true.lbool)
+      testCompile("#f", false.sbool, false.lbool)
     }
 
     'symbols {
-      testCompile("x", SSym("x"), Sym("x"))
-      testCompile("xyz", SSym("xyz"), Sym("xyz"))
-    }
-
-    'quotes {
-      testCompile("(quote x)", SList(SSym("quote") :: SSym("x") :: Nil), Quote(Sym("x")))
-      testCompile("(quote 5)", SList(SSym("quote") :: SNum(5) :: Nil), Quote(Num(5)))
-      testCompile("(quote (quote x))",
-        SList(
-          SSym("quote") ::
-          SList(
-            SSym("quote") ::
-            SSym("x") ::
-            Nil) ::
-          Nil
-        ),
-        Quote(Quote(Sym("x")))
-      )
+      testCompile("xyz", "xyz".ssym, "xyz".lsym)
     }
 
     'binds {
-      testCompile(
-        "(define x 5)",
-        SList(SSym("define") :: SSym("x") :: SNum(5) :: Nil),
-        Bind(Sym("x"), Num(5))
-      )
+      testCompile("(define x 5)", slist("define".ssym, "x".ssym, 5.snum), Bind("x".lsym,5.lnum))
     }
 
     'fnapps {
-      val listAdd = "(+ 1 2 3 4)"
-      val SExp = SList(SSym("+") :: SNum(1) :: SNum(2) :: SNum(3) :: SNum(4) :: Nil)
-      val expr = ApplySym(Sym("+"), Num(1) :: Num(2) :: Num(3) :: Num(4) :: Nil)
-      val evaled = Num(10)
-      testCompile(listAdd, SExp, expr)
-      testEval(expr, evaled)
+      val src = "(+ 1 2 3 4)"
+      val sexp = slist("+".ssym, 1.snum, 2.snum, 3.snum, 4.snum)
+      val exp = ApplySym("+".lsym, List(1.lnum, 2.lnum, 3.lnum, 4.lnum))
+      testEval(testCompile(src, sexp, exp), 10.lnum)
     }
 
     'lambdas {
       val ident = "(lambda (x) x)"
-      val SExp = SList(SSym("lambda") :: SList(SSym("x") :: Nil) :: SSym("x") :: Nil)
-      val expr = Closure(freeVars = List("x".sym), body = Sym("x"))
-      testCompile(ident, SExp, expr)
+      val sexp = slist("lambda".ssym, slist("x".ssym), "x".ssym)
+      val exp = Closure(freeVars=List("x".lsym), body="x".lsym)
+      testCompile(ident, sexp, exp)
 
       'nested {
-        val nest = """(define nest
-                     |  (lambda (outer)
-                     |    (lambda (inner)
-                     |      (+ outer inner)
-                     |    )
-                     |  )
-                     |)""".stripMargin.trim
-        val SExp =
-          SList(List(
-              SSym("define"),
-              SSym("nest"),
-              SList(List(
-                  SSym("lambda"),
-                  SList(List( SSym("outer") )),
-                  SList(List(
-                      SSym("lambda"),
-                      SList(List( SSym("inner") )),
-                      SList(List( SSym("+"), SSym("outer"), SSym("inner") ))
-                    )
-                  )
-                )
-              )
+        val nest =  """(((lambda (outer) (lambda (inner) (+ outer inner))) 1) 2)"""
+        val sexp =
+          slist(slist(slist(
+            "lambda".ssym,
+            slist("outer".ssym),
+            slist(
+              "lambda".ssym,
+              slist("inner".ssym),
+              slist("+".ssym,"outer".ssym,"inner".ssym)
             )
-          )
+          ),
+          1.snum),
+          2.snum)
 
-        val expr =
-          Bind(
-            Sym("nest"),
-            Closure(
-              body = Closure(
-                body = ApplySym(Sym("+"), List(Sym("outer"), Sym("inner")) ),
-                freeVars = List("inner".sym)
-
-              ),
-              freeVars = List("outer".sym)
-            )
-          )
-        testCompile(nest,SExp,expr)
-
-        val nest2 = """(
-                      |  ((lambda (outer)
-                      |    (lambda (inner) (+ outer inner)))
-                      |     1)
-                      |  2)""".stripMargin.trim
-        val SExp2 =
-          SList(List(
-            SList(List(
-              SList(List(
-                SSym("lambda"),
-                SList(List( SSym("outer") )),
-                SList(List(
-                  SSym("lambda"),
-                  SList(List( SSym("inner") )),
-                  SList(List( SSym("+"), SSym("outer"), SSym("inner") ))
-                ))
-              )),
-              SNum(1)
-            )),
-            SNum(2))
-          )
-        val expr2 = ApplyProc(
-            Closure(
-              body = ApplyProc(
-                Closure(
-                  body = ApplySym(Sym("+"), List(Sym("outer"),Sym("inner"))),
-                  freeVars = List("inner".sym)
+        val exp =
+          Apply(
+            head = ApplyProc(
+              proc = Closure(
+                body = Closure(
+                  body = ApplySym("+".lsym,List("outer".lsym, "inner".lsym)),
+                  freeVars = List(Sym("inner"))
                 ),
-                List(Num(1))
+                freeVars = List(Sym("outer"))
               ),
-              freeVars = List("outer".sym)
+              args = List(Num(1))
             ),
-            List(Num(2))
+            args = List(Num(2))
           )
-        testCompile(nest2, SExp2, expr2)
-        testEval(expr2,3)
+        testEval(testCompile(nest, sexp, exp),3.lnum)
       }
-
-      // 'seqbody {
-      //   val test =
-      //     """
-      //       |(lambda (x)
-      //       |   (stmt1)
-      //       |   (+ 5 5)
-      //       |   x
-      //       |)
-      //     """.stripMargin.trim
-      //   val SExp = SList(List(
-      //     SSym("lambda"),
-      //     SList(List(SSym("x"))),
-      //     SList(List(SSym("stmt1"))),
-      //     SList(List(SSym("+"), SNum(5), SNum(5))),
-      //     SSym("x")
-      //   ))
-      //   val expr = Closure(
-      //     freeVars = List("x"),
-      //     body = List(
-      //       ApplySym(Sym("stmt1"),Nil),
-      //       ApplySym(Sym("+"), List(Num(5),Num(5))),
-      //       Sym("x")
-      //     )
-      //   )
-      //
-      // }
-
-    }
-
-    'add {
-      val add = "(+ 1 2)"
-      val SExp = SList(List(
-        SSym("+"),
-        SNum(1),
-        SNum(2)
-      ))
-      val expr = ApplySym(
-        Sym("+"),
-        List(Num(1),Num(2))
-      )
-      val evaled = Num(3)
-
-      testCompile(add, SExp, expr)
-      testEval(expr, evaled)
     }
 
     'programs {
-      val add1 = "( (define add (lambda (a b) (if (= b 0) a (add (+ a 1) (- b 1))))) 9 3 )"
-      testEval(compile(_parse(add1).get.value), 12)
+      testRepl(
+        ("(define x 5)", Unit),
+        ("(+ x 1)", 6.lnum)
+      )
+      testRepl(
+        ("(define add (lambda (a b) (if (= b 0) a (add (+ a 1) (- b 1)))))", Unit),
+        ("(add 9 3)", 12.lnum)
+      )
+
     }
 
   }

@@ -9,14 +9,22 @@ object lib {
     case Num(n) => n
   }
 
+  def native(fn: List[Exp] => Exp) = NativeFunction(
+    (args: List[Exp]) => {
+      val errors = args.filter(_.isInstanceOf[EvalFail]).map(_.asInstanceOf[EvalFail])
+      if (errors.size > 0) EvalFail(errors.foldLeft("")((s,x) => s + x.msg))
+      else fn(args)
+    }
+  )
+
   def natives(): Map[Sym, Exp] = Map(
-    Sym("+") -> NativeFunction(args => { Num(args.map(numToInt(_)).sum) }),
-    Sym("-") -> NativeFunction(args => Num (numToInt(args(0)) - numToInt(args(1))) ),
-    Sym("*") -> NativeFunction(args => Num ( args.map(numToInt(_)).foldLeft(1)(_ * _)) ),
-    Sym("/") -> NativeFunction(args => Num (numToInt(args(0)) / numToInt(args(1))) ),
-    Sym("=") -> NativeFunction(args => Bool (args(0) == args(1)) ),
-    Sym("<") -> NativeFunction(args => Bool (numToInt(args(0)) < numToInt(args(1)) ) ),
-    Sym(">") -> NativeFunction(args => Bool (numToInt(args(0)) > numToInt(args(1)) ) )
+    Sym("+") -> native(args => Num(args.map(numToInt(_)).sum) ),
+    Sym("-") -> native(args => Num (numToInt(args(0)) - numToInt(args(1))) ),
+    Sym("*") -> native(args => Num ( args.map(numToInt(_)).foldLeft(1)(_ * _)) ),
+    Sym("/") -> native(args => Num (numToInt(args(0)) / numToInt(args(1))) ),
+    Sym("=") -> native(args => Bool (args(0) == args(1)) ),
+    Sym("<") -> native(args => Bool (numToInt(args(0)) < numToInt(args(1)) ) ),
+    Sym(">") -> native(args => Bool (numToInt(args(0)) > numToInt(args(1)) ) )
   )
 
 }

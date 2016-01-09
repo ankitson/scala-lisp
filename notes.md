@@ -3,4 +3,6 @@
 
  * fn args are strictly evaluated
   * so evaluating if-else is a special case in the interpreter :(
-  * we could implement lazy, or lazy+memo eval. but native methods have to be strict.
+  * we could implement lazy, or lazy+memo eval for lambdas. but native methods have to be strict.
+
+ * todo next - see failing test. scoping for nested closures is broken.

@@ -58,6 +58,11 @@ object LispTests extends TestSuite {
 
     'binds {
       testCompile("(define x 5)", slist("define".ssym, "x".ssym, 5.snum), Bind("x".lsym,5.lnum))
+      testRepl(
+        ("(define x 5)", Unit),
+        ("(+ x 1)", 6.lnum)
+      )
+
     }
 
     'fnapps {
@@ -104,18 +109,23 @@ object LispTests extends TestSuite {
           )
         testEval(testCompile(nest, sexp, exp),3.lnum)
       }
+
+      'recursive {
+        testRepl(
+          ("(define add (lambda (a b) (if (= b 0) a (add (+ a 1) (- b 1)))))", Unit),
+          ("(add 9 3)", 12.lnum)
+        )
+      }
     }
 
-    'programs {
-      testRepl(
-        ("(define x 5)", Unit),
-        ("(+ x 1)", 6.lnum)
-      )
-      testRepl(
-        ("(define add (lambda (a b) (if (= b 0) a (add (+ a 1) (- b 1)))))", Unit),
-        ("(add 9 3)", 12.lnum)
-      )
-
+    'if {
+      'lazy {
+        testRepl(
+          ("(define f (lambda (x) (if (= x 0) (+ x 1) (/ 1 x) ) ) )", Unit),
+          ("(f 0)", 1.lnum),
+          ("(f 1)", 1.lnum)
+        )
+      }
     }
 
   }

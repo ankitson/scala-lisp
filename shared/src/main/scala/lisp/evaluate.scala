@@ -46,10 +46,8 @@ object evaluate {
       case head :: tail =>
         genAST(head) match {
           case c: Closure => ApplyProc(c, tail.map(genAST))
-          case other => Apply(other,tail.map(genAST)) //ApplyProc( EvalsToProc(other), tail.map(genAST) )
-          //(Fail(f"expected procedure but got $other")
+          case other => Apply(other,tail.map(genAST))
         }
-
 
       case other => Fail(f"error compiling $other")
     }

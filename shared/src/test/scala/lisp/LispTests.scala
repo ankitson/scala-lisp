@@ -9,7 +9,6 @@ import utest._
 
 object LispTests extends TestSuite {
 
-
   val tests = TestSuite {
     import fastparse.core.Parsed
 
@@ -18,13 +17,9 @@ object LispTests extends TestSuite {
     val evaluate = (exp:Exp) => eval(exp,natives)._1
 
     def testCompile(source: String, SExp: SExp, expr: Exp) = {
-      println("-----------------------")
-      println(f"evaluating \n $source")
       val Parsed.Success(res_SExp, _) = _parse(source).get
-      println(f"parsed ast \n $res_SExp")
       assert (res_SExp == SExp)
       val res_expr = compile(SExp)
-      println(f"compiled ast \n $expr")
       assert (res_expr == expr)
       expr
     }

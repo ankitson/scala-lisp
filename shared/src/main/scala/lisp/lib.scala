@@ -9,7 +9,7 @@ object lib {
     case Num(n) => n
   }
 
-  val natives: Map[Sym, Exp] = Map(
+  def natives(): Map[Sym, Exp] = Map(
     Sym("+") -> NativeFunction(args => { Num(args.map(numToInt(_)).sum) }),
     Sym("-") -> NativeFunction(args => Num (numToInt(args(0)) - numToInt(args(1))) ),
     Sym("*") -> NativeFunction(args => Num ( args.map(numToInt(_)).foldLeft(1)(_ * _)) ),

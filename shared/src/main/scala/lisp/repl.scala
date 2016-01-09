@@ -41,28 +41,6 @@ object repl extends App {
     val (output,nextEnv) = step(input)
     println(output)
     loop(nextEnv)
-
-    // while (true) {
-    //   var input = readLine(">")
-    //
-    //   var brackets = input.map(c => if (c == '(') 1 else if (c == ')') -1 else 0).sum
-    //   while (brackets != 0) {
-    //     input = input + readLine(">")
-    //     brackets = input.map(c => if (c == '(') 1 else if (c == ')') -1 else 0).sum
-    //   }
-    //
-    //   //control commands
-    //   if (input == "(debug)")
-    //
-    //
-    //   val parsed = sexpP.parse(input).get.value
-    //   //println(s"parsed: $parsed")
-    //   val compiled = genAST(parsed)
-    //   //println(s"compiled: $compiled")
-    //   val (evaledv, newe) = eval(compiled, env)
-    //   println(s"$evaledv")
-    //   env = newe
-    // }
   }
 
 
